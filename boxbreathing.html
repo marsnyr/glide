@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Breathing Interval Timer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Include Bebas Neue font from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <!-- Inline CSS Styles -->
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f9ff;
+      font-family: 'Bebas Neue', Arial, sans-serif;
+    }
+    .timer-container {
+      text-align: center;
+    }
+    .phase {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    .countdown {
+      font-size: 5rem;
+      margin-bottom: 20px;
+    }
+    .total-duration {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+    .circle {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin: 0 auto 20px;
+    }
+    .circle svg {
+      transform: rotate(-90deg);
+    }
+    .circle circle {
+      fill: none;
+      stroke-width: 15;
+      stroke-linecap: round;
+    }
+    .background-circle {
+      stroke: #e0e0e0;
+    }
+    .progress-circle {
+      stroke: #00b4d8;
+      stroke-dasharray: 628; /* 2 * PI * 100 */
+      stroke-dashoffset: 628;
+      transition: stroke-dashoffset 1s linear;
+    }
+    .controls button {
+      padding: 10px 20px;
+      margin: 0 10px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-family: 'Bebas Neue', Arial, sans-serif;
+    }
+    .start-button {
+      background-color: #48bb78;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+    }
+    .pause-button, .resume-button {
+      background-color: #ed8936;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+    }
+    .reset-button {
+      background-color: #e53e3e;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="timer-container">
+    <div class="phase" id="phase-display">Get Ready</div>
+    <div class="circle">
+      <svg width="220" height="220">
+        <circle class="background-circle" cx="110" cy="110" r="100"></circle>
+        <circle class="progress-circle" id="progress-circle" cx="110" cy="110" r="100"></circle>
+      </svg>
+    </div>
+    <div class="countdown" id="countdown-display">0</div>
+    <div class="total-duration" id="total-duration-display">Total Time: 0:00</div>
+    <div class="controls">
+      <button class="start-button" id="start-button">Start</button>
+      <button class="pause-button" id="pause-button" style="display: none;">Pause</button>
+      <button class="resume-button" id="resume-button" style="display: none;">Resume</button>
+      <button class="reset-button" id="reset-button" style="display: none;">Reset</button>
+    </div>
+  </div>
+
+  <!-- JavaScript Code -->
+  <script>
+    // Pre-set durations in seconds
+    const durations = {
+      inhale: 4,
+      hold1: 4,
+      exhale: 4,
+      hold2: 4 // Hold after exhale set to 4 seconds
+    };
+
+    // Phases of the breathing cycle
+    const phases = [
+      { name: 'Inhale', duration: durations.inhale, color: '#00b4d8' },
+      { name: 'Hold', duration: durations.hold1, color: '#9b5de5' },
+      { name: 'Exhale', duration: durations.exhale, color: '#06d6a0' },
+      { name: 'Hold', duration: durations.hold2, color: '#ff8800' }
+    ];
+
+    // Calculate total duration of one full cycle
+    const totalCycleDuration = phases.reduce((sum, phase) => sum + phase.duration, 0);
+
+    let phaseIndex = 0;
+    let timeLeft = phases[phaseIndex].duration;
+    let timerInterval;
+    let isRunning = false;
+    let totalTimeElapsed = 0;
+    let cycleTimeElapsed = 0; // Time elapsed within the current cycle
+
+    const phaseDisplay = document.getElementById('phase-display');
+    const countdownDisplay = document.getElementById('countdown-display');
+    const totalDurationDisplay = document.getElementById('total-duration-display');
+    const progressCircle = document.getElementById('progress-circle');
+    const startButton = document.getElementById('start-button');
+    const pauseButton = document.getElementById('pause-button');
+    const resumeButton = document.getElementById('resume-button');
+    const resetButton = document.getElementById('reset-button');
+
+    function formatTime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hrs > 0 ? hrs + ':' : ''}${hrs > 0 ? String(mins).padStart(2, '0') : mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function updateDisplay() {
+      phaseDisplay.textContent = phases[phaseIndex].name;
+      countdownDisplay.textContent = timeLeft;
+      totalDurationDisplay.textContent = 'Total Time: ' + formatTime(totalTimeElapsed);
+      progressCircle.style.stroke = phases[phaseIndex].color;
+
+      const circumference = 2 * Math.PI * 100;
+      const progress = (cycleTimeElapsed / totalCycleDuration) * circumference;
+      progressCircle.style.strokeDashoffset = circumference - (progress % circumference);
+    }
+
+    function nextPhase() {
+      phaseIndex++;
+      if (phaseIndex >= phases.length) {
+        phaseIndex = 0;
+        cycleTimeElapsed = 0; // Reset cycle time when starting a new cycle
+      }
+      timeLeft = phases[phaseIndex].duration;
+      updateDisplay();
+    }
+
+    function startTimer() {
+      if (isRunning) return;
+      isRunning = true;
+      startButton.style.display = 'none';
+      pauseButton.style.display = 'inline-block';
+      resetButton.style.display = 'inline-block';
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        totalTimeElapsed++;
+        cycleTimeElapsed++;
+        updateDisplay();
+        if (timeLeft <= 0) {
+          nextPhase();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      if (!isRunning) return;
+      isRunning = false;
+      clearInterval(timerInterval);
+      pauseButton.style.display = 'none';
+      resumeButton.style.display = 'inline-block';
+    }
+
+    function resumeTimer() {
+      if (isRunning) return;
+      isRunning = true;
+      pauseButton.style.display = 'inline-block';
+      resumeButton.style.display = 'none';
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        totalTimeElapsed++;
+        cycleTimeElapsed++;
+        updateDisplay();
+        if (timeLeft <= 0) {
+          nextPhase();
+        }
+      }, 1000);
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isRunning = false;
+      phaseIndex = 0;
+      timeLeft = phases[phaseIndex].duration;
+      totalTimeElapsed = 0;
+      cycleTimeElapsed = 0;
+      updateDisplay();
+      startButton.style.display = 'inline-block';
+      pauseButton.style.display = 'none';
+      resumeButton.style.display = 'none';
+      resetButton.style.display = 'none';
+    }
+
+    startButton.addEventListener('click', () => {
+      startTimer();
+    });
+
+    pauseButton.addEventListener('click', pauseTimer);
+    resumeButton.addEventListener('click', resumeTimer);
+    resetButton.addEventListener('click', resetTimer);
+
+    // Initialize display
+    updateDisplay();
+  </script>
+</body>
+</html>
